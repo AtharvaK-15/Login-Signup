@@ -3,8 +3,14 @@ const express = require("express");
 const app = express()
 const bodyparser = require("body-parser")
 const port = 3000
+// bcrypt is a js library used for hashing passwords
+const bcrypt = require("bcrypt");
+const passport = require("passport");
 
+// storing the user information in the local storage
 const users = []
+const initializepassport = require("./passport-config")
+initializepassport(passport)
 
 app.set("view engine","ejs")
 app.use(bodyparser.urlencoded({extended:true}));
@@ -27,8 +33,20 @@ app.get("/register",function(req,res){
     res.render("register.ejs")
 })
 
-app.post("/register",function(req,res){
-    
+app.post("/register",async function(req,res){
+    try {
+        const hashedpassword = await bcrypt.hash(req.body.password,10);
+        users.push({
+            id:Date.now().toString(),
+            name:req.body.name,
+            email:req.body.email,
+            password:hashedpassword
+        })
+        res.redirect("/login")
+    } catch {
+        res.redirect("/register")
+    }
+    console.log(users);
 })
 
 
