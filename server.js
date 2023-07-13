@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const express = require("express");
 const app = express()
 const bodyparser = require("body-parser")
@@ -6,15 +7,28 @@ const port = 3000
 // bcrypt is a js library used for hashing passwords
 const bcrypt = require("bcrypt");
 const passport = require("passport");
+const flash = require("express-flash")
+const session = require("express-session")
+
 
 // storing the user information in the local storage
 const users = []
 const initializepassport = require("./passport-config")
-initializepassport(passport)
+initializepassport(passport,
+    email => users.find(users=>users.email === email)
+)
 
 app.set("view engine","ejs")
 app.use(bodyparser.urlencoded({extended:true}));
 app.use(express.static("public"));
+app.use(flash());
+app.use(session({
+    secret:process.env.SESSION_SECRET,
+    resave:false,
+    saveUninitialized:false
+}))
+app.use(passport.initialize())
+app.use(passport.session())
 
 app.get("/",function(req,res){
     res.render("index.ejs", {name:"Atharva"})
@@ -25,9 +39,11 @@ app.get("/login",function(req,res){
     res.render("login.ejs")
 })
 
-app.post("/login",function(req,res){
-
-})
+app.post("/login",passport.authenticate("local",{
+    successRedirect:"/",
+    failureRedirect:"/login",
+    failureFlash:true
+}))
 
 app.get("/register",function(req,res){
     res.render("register.ejs")
