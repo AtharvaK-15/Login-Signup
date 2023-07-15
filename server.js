@@ -9,13 +9,15 @@ const bcrypt = require("bcrypt");
 const passport = require("passport");
 const flash = require("express-flash")
 const session = require("express-session")
+const methodoverride = require("method-override")
 
 
 // storing the user information in the local storage
 const users = []
 const initializepassport = require("./passport-config")
 initializepassport(passport,
-    email => users.find(users=>users.email === email)
+    email => users.find(users=>users.email === email),
+    id => users.find(users=>users.id === id)
 )
 
 app.set("view engine","ejs")
@@ -29,27 +31,28 @@ app.use(session({
 }))
 app.use(passport.initialize())
 app.use(passport.session())
+app.use(methodoverride("_method"))
 
-app.get("/",function(req,res){
-    res.render("index.ejs", {name:"Atharva"})
+app.get("/", checkAuthenticated ,function(req,res){
+    res.render("index.ejs", {name:req.user.name})
     // res.send("Hello World")
 })
 
-app.get("/login",function(req,res){
+app.get("/login",checkNotAuthenticated,function(req,res){
     res.render("login.ejs")
 })
 
-app.post("/login",passport.authenticate("local",{
+app.post("/login",checkNotAuthenticated,passport.authenticate("local",{
     successRedirect:"/",
     failureRedirect:"/login",
     failureFlash:true
 }))
 
-app.get("/register",function(req,res){
+app.get("/register",checkNotAuthenticated,function(req,res){
     res.render("register.ejs")
 })
 
-app.post("/register",async function(req,res){
+app.post("/register",checkNotAuthenticated,async function(req,res){
     try {
         const hashedpassword = await bcrypt.hash(req.body.password,10);
         users.push({
@@ -65,5 +68,32 @@ app.post("/register",async function(req,res){
     console.log(users);
 })
 
+// loggin out the user:
+
+app.delete("/logout", (req, res) => {
+    req.logOut(function (err) {
+      if (err) {
+        return next(err);
+      }
+      res.redirect("/login");
+    });
+  });
+
+// middleware function to restrict user without login to access homepage
+// here, iseuthenticated is a built-in passportjs function.
+function checkAuthenticated(req,res,next){
+    if(req.isAuthenticated()){
+        return next()
+    }
+    res.redirect("/login")
+}
+
+// if user is already logged in, dont allow him to go to the login page again
+function checkNotAuthenticated(req,res,next){
+    if(req.isAuthenticated()){
+       return res.redirect("/")
+    }
+    return next()
+}
 
 app.listen(port)
